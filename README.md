@@ -1,31 +1,39 @@
 # Twitter Sentiment Analysis
 
-A sentiment analysis project that classifies tweets as **Positive**, **Negative** or **Neutral**. It includes a classic machine learning baseline (TF-IDF + Logistic Regression) and a pretrained transformer model (RoBERTa), served through an interactive Streamlit web app.
+A sentiment analysis app that classifies tweets as **Positive**, **Negative** or **Neutral** in **English and Hinglish**. It includes a classic machine learning baseline (TF-IDF + Logistic Regression), pretrained RoBERTa models, and an interactive Streamlit web app.
 
-![App screenshot](screenshot.png)
+**Live demo:** <add-your-streamlit-link-here>
+
+![Single tweet analysis](screenshot.png)
 
 ## Features
 
-- Web app built with Streamlit: type a tweet and get its sentiment with a confidence score
-- Three-class prediction (Positive / Neutral / Negative) using a Twitter-specific RoBERTa model
+- Analyse a single tweet and get its sentiment with a confidence score
+- Three-class prediction (Positive / Neutral / Negative)
+- English and Hinglish support through separate pretrained models
+- CSV upload: analyse hundreds of tweets at once
+- Sentiment distribution chart and word cloud (filterable by sentiment)
+- Download the results as a CSV file
 - Baseline model trained from scratch on 200,000 tweets for comparison
-- Text cleaning pipeline (URLs, mentions, hashtags, punctuation)
+
+![CSV analysis](screenshot-csv.png)
 
 ## Dataset
 
-[Sentiment140](https://www.kaggle.com/datasets/kazanova/sentiment140) from Kaggle: 1.6 million tweets labelled as negative (0) or positive (4).
+[Sentiment140](https://www.kaggle.com/datasets/kazanova/sentiment140) from Kaggle: 1.6 million tweets labelled as negative (0) or positive (4). It is used only to train the baseline model and is not included in this repository because of its size.
 
-The dataset is not included in this repository because of its size. To train the baseline model:
+To train the baseline:
 
-1. Download it from Kaggle and extract it.
+1. Download the dataset from Kaggle and extract it.
 2. Place `training.1600000.processed.noemoticon.csv` in `data/archive/`.
 
 ## Models
 
-| Model | Classes | Training | Notes |
+| Model | Language | Classes | Notes |
 |---|---|---|---|
-| TF-IDF + Logistic Regression | Positive, Negative | Trained on 200k tweets from Sentiment140 | Fast and lightweight, but cannot detect neutral text |
-| `cardiffnlp/twitter-roberta-base-sentiment-latest` | Positive, Neutral, Negative | Pretrained on a large tweet corpus | Handles slang, context and neutral statements better |
+| TF-IDF + Logistic Regression | English | Positive, Negative | Trained on 200k tweets; fast, but cannot detect neutral text |
+| `cardiffnlp/twitter-roberta-base-sentiment-latest` | English | Positive, Neutral, Negative | Pretrained on tweets; used in the app |
+| `pascalrai/hinglish-twitter-roberta-base-sentiment` | Hinglish | Positive, Neutral, Negative | Fine-tuned on Hinglish tweets; used in the app |
 
 **Baseline accuracy (Logistic Regression):** XX% on a held-out 20% test set *(replace with your result)*
 
@@ -39,17 +47,18 @@ The dataset is not included in this repository because of its size. To train the
 
 *(Replace with the output of `python compare.py`.)*
 
-The baseline model only knows two classes, so it is forced to label neutral sentences as positive or negative. This is the main reason the app uses RoBERTa.
+The baseline model only knows two classes, so it must label neutral sentences as positive or negative. This is the main reason the app uses RoBERTa.
 
 ## Project structure
 
 ```
 twitter-sentiment/
-├── app.py              # Streamlit app (RoBERTa)
+├── app.py              # Streamlit app
 ├── sentiment.py        # Trains the Logistic Regression baseline
-├── compare.py          # Compares both models on sample sentences
+├── compare.py          # Compares baseline and RoBERTa on sample sentences
+├── make_sample.py      # Creates a sample CSV from Sentiment140
+├── test.csv            # Small sample file for trying the CSV upload
 ├── requirements.txt
-├── data/               # Dataset (not tracked by git)
 └── README.md
 ```
 
@@ -82,32 +91,39 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The first run downloads the RoBERTa model (about 500 MB), so it may take a few minutes. After that, the app opens at `http://localhost:8501`.
+The first run downloads the models (about 500 MB each), so it may take a few minutes. The app opens at `http://localhost:8501`.
+
+### Using the CSV upload
+
+Upload a CSV file with a column named `text` (the first 500 rows are analysed). You can try it with the included `test.csv`.
 
 ### Optional: train the baseline model
 
-After downloading the dataset (see above):
+Install the extra packages and run the training script (requires the dataset, see above):
 
 ```bash
+pip install pandas scikit-learn joblib
 python sentiment.py
 ```
 
-This trains the Logistic Regression model and saves `model.pkl` and `tfidf.pkl`. You can then run `python compare.py` to compare it with RoBERTa.
+This saves `model.pkl` and `tfidf.pkl`. Then `python compare.py` compares it with RoBERTa.
 
 ## Tech stack
 
-Python, pandas, scikit-learn, Hugging Face Transformers, PyTorch, Streamlit
+Python, pandas, scikit-learn, Hugging Face Transformers, PyTorch, Streamlit, WordCloud, Matplotlib
 
 ## Limitations
 
-- Sarcasm and irony are still hard for both models.
-- The baseline model was trained on English tweets only.
-- Hinglish and other mixed-language text is not supported.
+- Sarcasm and irony are hard for all models.
+- Hinglish accuracy is lower than English, and results depend on spelling and emoji use.
+- The baseline model was trained on English tweets only and has no neutral class.
+- The CSV analysis is limited to 500 rows to keep the app responsive.
 
 ## Future improvements
 
-- Upload a CSV and analyse many tweets at once
-- Charts and word clouds of sentiment results
-- Hinglish support
-- Deploy on Streamlit Community Cloud
+- Live tweet fetching
+- More languages
+- Model fine-tuning on domain-specific data
+
+
 
