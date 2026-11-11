@@ -11,6 +11,20 @@ MODELS = {
     "Hinglish": "pascalrai/hinglish-twitter-roberta-base-sentiment",
 }
 MAX_ROWS = 500
+LOW_CONFIDENCE = 0.6
+
+EXAMPLES = {
+    "English": [
+        "I love this new phone!",
+        "The meeting is at 3 pm tomorrow.",
+        "Worst service ever, totally disappointed",
+    ],
+    "Hinglish": [
+        "tu mujhe pasandh heh",
+        "kal meeting hai 3 baje",
+        "ye movie bahut bekar thi, paisa barbaad",
+    ],
+}
 
 HINGLISH_STOPWORDS = {
     "hai", "hain", "ho", "hu", "hun", "tha", "thi", "the", "ka", "ki", "ke",
@@ -66,17 +80,33 @@ def show_wordcloud(texts, label, stopwords):
     st.pyplot(fig)
 
 
+def set_example(text):
+    st.session_state.tweet_text = text
+
+
 st.title("Twitter Sentiment Analysis")
 
 language = st.radio("Language", ["English", "Hinglish"], horizontal=True)
 classifier = load_model(MODELS[language])
 stopwords = set(STOPWORDS) | HINGLISH_STOPWORDS if language == "Hinglish" else set(STOPWORDS)
 
+if "tweet_text" not in st.session_state:
+    st.session_state.tweet_text = ""
+
 tab_single, tab_csv = st.tabs(["Single tweet", "Upload CSV"])
 
 with tab_single:
-    placeholder = "tu mujhe pasandh heh" if language == "Hinglish" else ""
-    tweet = st.text_area("Enter your tweet:", placeholder=placeholder)
+    st.write("Try an example:")
+    columns = st.columns(len(EXAMPLES[language]))
+    for column, example in zip(columns, EXAMPLES[language]):
+        column.button(
+            example,
+            on_click=set_example,
+            args=(example,),
+            key=f"example_{language}_{example}",
+        )
+
+    tweet = st.text_area("Enter your tweet:", key="tweet_text")
 
     if st.button("Analyze"):
         if tweet.strip():
@@ -108,15 +138,65 @@ with tab_csv:
             df["sentiment"] = [normalize(r["label"]).capitalize() for r in results]
             df["confidence"] = [round(r["score"], 3) for r in results]
 
-            st.subheader("Sentiment distribution")
-            st.bar_chart(df["sentiment"].value_counts())
+            # Summary numbers
+            total = len(df)
+            positive_pct = (df["sentiment"] == "Positive").mean()
+            low_conf = (df["confidence"] < LOW_CONFIDENCE).sum()
 
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Tweets analysed", total)
+            m2.metric("Positive", f"{positive_pct:.0%}")
+            m3.metric(f"Low confidence (<{LOW_CONFIDENCE:.0%})", int(low_conf))
+
+            # Bar chart and pie chart side by side
+            counts = df["sentiment"].value_counts()
+            left, right = st.columns(2)
+
+            with left:
+                st.subheader("Sentiment distribution")
+                st.bar_chart(counts)
+
+            with right:
+                st.subheader("Sentiment share")
+                fig, ax = plt.subplots(figsize=(4, 4))
+                ax.pie(
+                    counts.values,
+                    labels=counts.index,
+                    autopct="%1.0f%%",
+                    startangle=90,
+                )
+                ax.axis("equal")
+                st.pyplot(fig)
+
+            # Most confident tweets
+            st.subheader("Most confident tweets")
+            for sentiment in ["Positive", "Negative"]:
+                top = (
+                    df[df["sentiment"] == sentiment]
+                    .nlargest(5, "confidence")[["text", "confidence"]]
+                )
+                st.write(f"**Top {sentiment.lower()} tweets**")
+                if top.empty:
+                    st.write("None found.")
+                else:
+                    st.dataframe(top, hide_index=True)
+
+            # Hashtags
+            hashtags = (
+                df["text"].astype(str).str.findall(r"#\w+").explode().dropna().str.lower()
+            )
+            if not hashtags.empty:
+                st.subheader("Top hashtags")
+                st.bar_chart(hashtags.value_counts().head(10))
+
+            # Word cloud
             st.subheader("Word cloud")
             choice = st.selectbox("Show words from", ["All", "Positive", "Neutral", "Negative"])
             subset = df if choice == "All" else df[df["sentiment"] == choice]
             cleaned = subset["text"].astype(str).apply(clean_for_cloud).tolist()
             show_wordcloud(cleaned, choice, stopwords)
 
+            # Full results
             st.subheader("Results")
             st.dataframe(df)
 
