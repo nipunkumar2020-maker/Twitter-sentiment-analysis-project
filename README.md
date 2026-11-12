@@ -15,6 +15,8 @@ A sentiment analysis app that classifies tweets as **Positive**, **Negative** or
 - Sentiment distribution chart and word cloud (filterable by sentiment)
 - Download the results as a CSV file
 - Baseline model trained from scratch on 200,000 tweets for comparison
+- Summary metrics, pie chart, top confident tweets and hashtag chart for CSV analysis
+- One-click example tweets
 
 ![CSV analysis](screenshot-csv.png)
 
